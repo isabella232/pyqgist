@@ -21,14 +21,14 @@
 В обоих случаях получаются абсолютна пустые изображения и это первая проблема. Можно предположить, что что-то поменялось в API pyqgis между версиями, но другой слой даже без стиля вполне себе рендерится и с API все впорядке.
 
 ```
-$ python maprenderer.py sample/qgis28-highway-nostyle.geojson sample/qgis28-highway-nostyle.png
+(QGIS 2.8) $ python maprenderer.py sample/qgis28-highway-nostyle.geojson sample/qgis28-highway-nostyle.png
 ```
 
 Но рисуется хоть что-то, попробуем разобраться с ним. Добавим к этому слою стиль из veloroad и попробуем отрисовать что получится при разных значениях DPI (там так же используются значения в миллиметрах).
 
 ```
 (QGIS 2.8) $ python maprenderer.py sample/qgis28-highway.geojson sample/qgis28-highway-96dpi.png
-(QGIS 2.0) $ python maprenderer.py --dpi 150 sample/qgis28-highway.geojson sample/qgis28-highway-150dpi.png
+(QGIS 2.8) $ python maprenderer.py --dpi 150 sample/qgis28-highway.geojson sample/qgis28-highway-150dpi.png
 ```
 
 Что-то оно рисует, но оно очень сильно отличается от того что рисует QGIS в интерфейсе. Все линии какие-то очень тонкие, и изменение DPI на это никак не влияет. Это вторая проблема. Такое ощущение, что DPI вообще ни как не влияет на отрисовку.
