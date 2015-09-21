@@ -1,23 +1,24 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals, print_function, absolute_import
 import sys
-import os.path
+from datetime import datetime
+
 from argparse import ArgumentParser
 from qgis.core import (
     QgsApplication,
     QgsMapLayerRegistry,
     QgsVectorLayer,
-    QgsMapRenderer,
-    QgsCoordinateReferenceSystem)
+    QgsCoordinateReferenceSystem,
+    QgsMapSettings, QgsMapRendererParallelJob, QgsMapRendererSequentialJob)
 from PyQt4.QtCore import (
-    QSize,
-    QByteArray,
-    QBuffer,
-    QIODevice)
+    QSize)
 from PyQt4.QtGui import (
-    QImage,
-    QPainter,
-    qRgb)
+    QImage)
+
+
+prefix = '/opt/qgis_stable'
+parallel_rendering = False
+
 
 aparser = ArgumentParser()
 aparser.add_argument('input')
@@ -26,12 +27,13 @@ aparser.add_argument('--dpi', type=int, default=96)
 aparser.add_argument('--width', type=int, default=1000)
 args = aparser.parse_args(sys.argv[1:])
 
-QgsApplication.setPrefixPath('/usr', True)
+QgsApplication.setPrefixPath(prefix, True)
+QgsApplication.setMaxThreads(4)
 QgsApplication.initQgis()
+app = QgsApplication([], False)
+
 
 layer = QgsVectorLayer(args.input, 'layer', 'ogr')
-extent = layer.extent()
-print("Layer extent: %s" % extent.toString())
 
 QgsMapLayerRegistry.instance().removeAllMapLayers()
 QgsMapLayerRegistry.instance().addMapLayer(layer)
@@ -39,43 +41,40 @@ QgsMapLayerRegistry.instance().addMapLayer(layer)
 crs = QgsCoordinateReferenceSystem(4326)
 layer.setCrs(crs)
 
-render = QgsMapRenderer()
-render.setLayerSet([layer.id()])
+
+extent = layer.extent()
+print("Layer extent: %s" % extent.toString())
 
 iwidth = args.width
-iheight = int(iwidth * (extent.height() / extent.width()))
+iheight = int(iwidth * (extent.height() / extent.width()))+1
 
 print("Image size: %dx%d" % (iwidth, iheight))
 
-dpi = args.dpi
+sett = QgsMapSettings()
+sett.setLayers([layer.id()])
+sett.setFlag(QgsMapSettings.DrawLabeling)
+sett.setFlag(QgsMapSettings.Antialiasing)
 
-img = QImage(iwidth, iheight, QImage.Format_RGB32)
-img.setDotsPerMeterX(dpi / 25.4 * 1000)
-img.setDotsPerMeterY(dpi / 25.4 * 1000)
-img.fill(qRgb(255, 255, 255))
+sett.setCrsTransformEnabled(True)
+sett.setDestinationCrs(crs)
+sett.setMapUnits(crs.mapUnits())
+sett.setOutputSize(QSize(iwidth, iheight))
+sett.setExtent(extent)
 
-dpi = img.logicalDpiX()
-print("Image DPI: %d" % dpi)
+sett.setOutputImageFormat(QImage.Format_ARGB32)
+sett.setOutputDpi(args.dpi)
 
-render.setOutputSize(QSize(img.width(), img.height()), dpi)
+print("Scale: %f" % sett.scale())
 
-render.setDestinationCrs(crs)
-render.setProjectionsEnabled(True)
-render.setMapUnits(crs.mapUnits())
+if parallel_rendering:
+    job = QgsMapRendererParallelJob(sett)
+else:
+    job = QgsMapRendererSequentialJob(sett)
 
-render.setExtent(extent)
-print("Scale: %f" % render.scale())
+job.start()
+job.waitForFinished()
 
-painter = QPainter(img)
-painter.setRenderHint(QPainter.Antialiasing)
-render.render(painter)
-painter.end()
+img = job.renderedImage()
+img.save(args.output)
 
-ba = QByteArray()
-bf = QBuffer(ba)
-bf.open(QIODevice.WriteOnly)
-img.save(bf, 'PNG')
-bf.close()
-
-with open(args.output, 'wb') as fd:
-    fd.write(ba)
+app.exitQgis()
