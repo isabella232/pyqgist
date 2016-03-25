@@ -44,3 +44,7 @@
 ```
 (QGIS 2.0) $ python maprenderer.py sample/qgis20-highway-osmhp.geojson sample/qgis20-highway-osmhp.png
 ```
+
+License
+-------------
+This program is licensed under GNU GPL v2 or any later version
